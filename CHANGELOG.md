@@ -3,7 +3,7 @@
 All Zana packages share one version number and are released together. A release that did
 not change this package is not listed.
 
-## 2.14.0 — Unreleased
+## 2.14.0 — 2026-11-05
 
 First release (FE-61, ADR-029). Idempotency keys for Zana HTTP routes. A retried request with the
 same `Idempotency-Key` gets the stored response instead of running twice, a repeat while the first
