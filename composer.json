@@ -1,0 +1,350 @@
+{
+    "name": "mj-zana/idempotency",
+    "description": "Idempotency keys for Zana HTTP routes: a retried request gets the stored response instead of running twice",
+    "type": "library",
+    "keywords": [
+        "zana",
+        "idempotency",
+        "idempotency-key",
+        "http",
+        "middleware",
+        "payments"
+    ],
+    "license": "MIT",
+    "require": {
+        "php": "^8.5",
+        "mj-zana/core": "^2.11",
+        "mj-zana/database": "^2.12",
+        "mj-zana/http": "^2.10",
+        "psr/http-factory": "^1.1",
+        "psr/http-message": "^2.0",
+        "psr/http-server-middleware": "^1.0"
+    },
+    "require-dev": {
+        "mj-zana/console": "^2.0",
+        "mj-zana/routing": "^2.0",
+        "mj-zana/security": "^2.0",
+        "mj-zana/testing": "^2.0",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11.5"
+    },
+    "suggest": {
+        "mj-zana/security": "Scopes keys to the signed-in user",
+        "mj-zana/routing": "Lets check find #[Idempotent] handlers whose route lacks the middleware",
+        "mj-zana/console": "For idempotency:install and idempotency:prune"
+    },
+    "autoload": {
+        "psr-4": {
+            "Zana\\Idempotency\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Zana\\Idempotency\\Tests\\": "tests/"
+        },
+        "files": [
+            "tests/Fixtures.php"
+        ]
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../zana-audit",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/audit": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-cache",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/cache": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-communication",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/communication": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-configuration",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/configuration": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-console",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/console": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-container",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/container": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-core",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/core": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-database",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/database": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-ddd",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/ddd": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-events",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/events": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-filesystem",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/filesystem": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-http",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/http": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-logging",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/logging": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-maker",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/maker": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-media",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/media": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-mediator",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/mediator": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-outbox",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/outbox": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-queue",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/queue": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-routing",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/routing": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-scheduler",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/scheduler": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-security",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/security": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-serialization",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/serialization": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-session",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/session": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-testing",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/testing": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-translation",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/translation": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-validation",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/validation": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-view",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/view": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-view-markdown",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/view-markdown": "2.13.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "../zana-view-twig",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "mj-zana/view-twig": "2.13.0"
+                }
+            }
+        }
+    ],
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse --memory-limit=1G"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
