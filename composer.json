@@ -24,12 +24,14 @@
         "mj-zana/console": "^2.0",
         "mj-zana/routing": "^2.0",
         "mj-zana/security": "^2.0",
+        "mj-zana/session": "^2.0",
         "mj-zana/testing": "^2.0",
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^11.5"
     },
     "suggest": {
         "mj-zana/security": "Scopes keys to the signed-in user",
+        "mj-zana/session": "Scopes an anonymous visitor's keys to their session, not only their address",
         "mj-zana/routing": "Lets check find #[Idempotent] handlers whose route lacks the middleware",
         "mj-zana/console": "For idempotency:install and idempotency:prune"
     },

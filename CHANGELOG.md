@@ -3,6 +3,16 @@
 All Zana packages share one version number and are released together. A release that did
 not change this package is not listed.
 
+## 2.20.0 — Unreleased
+
+### Security
+
+- An anonymous client's keys belong to its session (with mj-zana/session), else to its address (the one
+  `TrustedProxiesMiddleware` found, else REMOTE_ADDR). Before, all anonymous clients shared one key space, so
+  another client sending the same key and body got the first one's stored response. Signed-in users' keys are
+  unchanged. An anonymous retry that spans the upgrade runs again, as its key is now stored under another id.
+- `IdempotencyMiddleware` takes an optional `session` closure, which the provider fills from `SessionContext`.
+
 ## 2.14.0 — 2026-11-05
 
 First release (FE-61, ADR-029). Idempotency keys for Zana HTTP routes. A retried request with the

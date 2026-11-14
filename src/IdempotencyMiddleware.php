@@ -13,6 +13,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Zana\Http\Exception\BadRequestHttpException;
 use Zana\Http\Exception\HttpException;
 use Zana\Http\Exception\UnprocessableEntityHttpException;
+use Zana\Http\TrustedProxiesMiddleware;
 use Zana\Idempotency\Internal\HandlerAttribute;
 
 /**
@@ -22,8 +23,11 @@ use Zana\Idempotency\Internal\HandlerAttribute;
  * response again (Idempotent-Replayed: true), a repeat while the first is
  * still running gets 409, and the same key with another request gets 422.
  *
- * Keys belong to the signed-in user when there is one. A response of 500 or
- * more, or an exception, frees the key, so the client can retry.
+ * Keys belong to the signed-in user when there is one. Anonymous keys belong
+ * to the session, else to the client address (2.20, S26): before, every
+ * anonymous client shared one key space, so another client sending the same
+ * key and body got the first one's response. A response of 500 or more, or
+ * an exception, frees the key, so the client can retry.
  */
 final readonly class IdempotencyMiddleware implements MiddlewareInterface
 {
@@ -33,6 +37,7 @@ final readonly class IdempotencyMiddleware implements MiddlewareInterface
 
     /**
      * @param \Closure(): (string|null) $user The signed-in user's identifier
+     * @param (\Closure(): (string|null))|null $session The anonymous visitor's session identifier, if they have one
      */
     public function __construct(
         private IdempotencyStore $store,
@@ -41,6 +46,7 @@ final readonly class IdempotencyMiddleware implements MiddlewareInterface
         private \Closure $user,
         private int $ttl = 86_400,
         private int $lockSeconds = 60,
+        private ?\Closure $session = null,
     ) {
     }
 
@@ -63,7 +69,7 @@ final readonly class IdempotencyMiddleware implements MiddlewareInterface
             throw new BadRequestHttpException('The Idempotency-Key header must be 1 to 255 visible ASCII characters.');
         }
 
-        $id = hash('sha256', ($this->user)() . "\n" . $key);
+        $id = hash('sha256', $this->owner($request) . "\n" . $key);
         $fingerprint = self::fingerprint($request);
         $ttl = $options->ttl ?? $this->ttl;
 
@@ -106,6 +112,26 @@ final readonly class IdempotencyMiddleware implements MiddlewareInterface
         $this->store->complete($id, $response->getStatusCode(), array_map(array_values(...), $response->getHeaders()), $body);
 
         return $response;
+    }
+
+    /**
+     * Whose keys these are. A user's identifier is used as it was before 2.20,
+     * so keys stored before the upgrade still match; the "\0" prefixes keep
+     * sessions and addresses apart from users and from each other.
+     */
+    private function owner(ServerRequestInterface $request): string
+    {
+        $user = ($this->user)();
+        if ($user !== null && $user !== '') {
+            return $user;
+        }
+        $session = $this->session === null ? null : ($this->session)();
+        if ($session !== null && $session !== '') {
+            return "\0session:" . $session;
+        }
+        $address = $request->getAttribute(TrustedProxiesMiddleware::CLIENT_IP) ?? $request->getServerParams()['REMOTE_ADDR'] ?? '';
+
+        return "\0client:" . (is_string($address) ? $address : '');
     }
 
     /**

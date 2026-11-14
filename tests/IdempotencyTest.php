@@ -14,6 +14,7 @@ use Zana\Database\ConnectionFactory;
 use Zana\Database\ConnectionInterface;
 use Zana\Http\Exception\HttpException;
 use Zana\Http\Exception\UnprocessableEntityHttpException;
+use Zana\Http\TrustedProxiesMiddleware;
 use Zana\Idempotency\IdempotencyMiddleware;
 use Zana\Idempotency\IdempotencyStore;
 use Zana\Idempotency\IdempotencyTableMigration;
@@ -34,6 +35,8 @@ final class IdempotencyTest extends TestCase
     private int $now = 1_800_000_000;
 
     private ?string $user = null;
+
+    private ?string $session = null;
 
     /**
      * @return array<string, array{string}>
@@ -127,7 +130,8 @@ final class IdempotencyTest extends TestCase
     {
         $this->boot($driver);
         // A first process claimed the key, then stopped before answering.
-        $this->assertTrue($this->store->claim(hash('sha256', "\nkey-1"), $this->fingerprintOf('key-1'), 60, 86_400));
+        $this->user = 'buyer-1';
+        $this->assertTrue($this->store->claim(hash('sha256', "buyer-1\nkey-1"), $this->fingerprintOf('key-1'), 60, 86_400));
 
         try {
             $this->send($this->pay('key-1'));
@@ -168,6 +172,51 @@ final class IdempotencyTest extends TestCase
         $this->send($this->pay('key-1', '{"amount":40}'));
 
         $this->assertSame(2, $this->controller->payments, "another buyer's key is not this buyer's");
+    }
+
+    // ── S26 ────────────────────────────────────────────────────────────────
+
+    #[DataProvider('drivers')]
+    public function testAnonymousKeysBelongToTheSession(string $driver): void
+    {
+        $this->boot($driver);
+        $this->controller->answer = static fn (): ResponseInterface => new Response(201, [], '{"ticket":"QR-SECRET-7731"}');
+        $this->session = 'visitor-a';
+        $this->send($this->pay('order-1042'));
+        $this->assertSame('true', $this->send($this->pay('order-1042'))->getHeaderLine(IdempotencyMiddleware::REPLAYED), 'its own retry is replayed');
+
+        $this->session = 'visitor-b';
+        $other = $this->send($this->pay('order-1042'));
+        $this->assertSame('', $other->getHeaderLine(IdempotencyMiddleware::REPLAYED), "another visitor never gets the first one's response");
+        $this->assertSame(2, $this->controller->payments);
+    }
+
+    #[DataProvider('drivers')]
+    public function testWithoutASessionAnonymousKeysBelongToTheClientAddress(string $driver): void
+    {
+        $this->boot($driver);
+        $from = static fn (string $address): ServerRequest => new ServerRequest('POST', '/orders/7/pay', ['Idempotency-Key' => 'order-1042'], '{"amount":25}', '1.1', ['REMOTE_ADDR' => $address]);
+
+        $this->send($from('198.51.100.7'));
+        $this->assertSame('true', $this->send($from('198.51.100.7'))->getHeaderLine(IdempotencyMiddleware::REPLAYED));
+        $this->send($from('203.0.113.9'));
+        $this->assertSame(2, $this->controller->payments, 'another address is another client');
+
+        // Behind a trusted proxy, the address TrustedProxiesMiddleware found counts, not the proxy's.
+        $this->send($from('10.0.0.1')->withAttribute(TrustedProxiesMiddleware::CLIENT_IP, '192.0.2.1'));
+        $this->send($from('10.0.0.1')->withAttribute(TrustedProxiesMiddleware::CLIENT_IP, '192.0.2.2'));
+        $this->assertSame(4, $this->controller->payments);
+    }
+
+    #[DataProvider('drivers')]
+    public function testASignedInUsersKeysAreUnchangedByTheUpgrade(string $driver): void
+    {
+        $this->boot($driver);
+        $this->user = 'buyer-1';
+        $this->session = 'visitor-a';
+        $this->send($this->pay('key-1'));
+
+        $this->assertNotNull($this->store->find(hash('sha256', "buyer-1\nkey-1")), 'stored under the id 2.19 used, so retries across the upgrade still replay');
     }
 
     #[DataProvider('drivers')]
@@ -225,7 +274,7 @@ final class IdempotencyTest extends TestCase
     private function send(ServerRequest $request, string $method = 'pay'): ResponseInterface
     {
         $factory = new Psr17Factory();
-        $middleware = new IdempotencyMiddleware($this->store, $factory, $factory, fn (): ?string => $this->user);
+        $middleware = new IdempotencyMiddleware($this->store, $factory, $factory, fn (): ?string => $this->user, session: fn (): ?string => $this->session);
 
         return $middleware->process($request->withAttribute('_handler', [PayController::class, $method]), new Handler($this->controller, $method));
     }

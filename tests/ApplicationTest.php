@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace Zana\Idempotency\Tests;
 
+use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Zana\Console\ConsoleKernel;
 use Zana\Console\ConsoleServiceProvider;
 use Zana\Container\Contracts\ContainerInterface;
 use Zana\Container\Contracts\ServiceCollectionInterface;
+use Zana\Container\Contracts\ServiceResolverInterface;
+use Zana\Database\ConnectionInterface;
+use Zana\Idempotency\IdempotencyTableMigration;
+use Zana\Session\Session;
+use Zana\Session\SessionContext;
+use Zana\Session\SessionServiceProvider;
 use Zana\Core\Application;
 use Zana\Core\ApplicationInterface;
 use Zana\Core\Inspection\ApplicationCheck;
@@ -76,6 +84,37 @@ final class ApplicationTest extends TestCase
 
         $this->assertSame(['stored' => 1, 'running' => 0, 'expired' => 0], self::tagged($app, InspectionSection::TAG, IdempotencySection::class)->inspect($app));
         $this->assertStringContainsString('Deleted 0 expired idempotency keys.', $console->run('idempotency:prune')->output());
+    }
+
+    public function testTheProviderScopesAnonymousKeysToTheSession(): void
+    {
+        $controller = new PayController();
+        $app = Application::configure($this->base)->withEnvironment('testing')
+            ->withProviders(HttpServiceProvider::class, DatabaseServiceProvider::class, SessionServiceProvider::class, IdempotencyServiceProvider::class)
+            ->withConfiguration(['database.connections.main' => ['driver' => 'sqlite', 'database' => ':memory:']])
+            ->build();
+        $db = $app->container()->get(ConnectionInterface::class);
+        assert($db instanceof ConnectionInterface);
+        (new IdempotencyTableMigration())->up($db->schema());
+
+        $pay = static function (ServiceResolverInterface $scope, ?string $session) use ($controller): ResponseInterface {
+            $context = $scope->get(SessionContext::class);
+            assert($context instanceof SessionContext);
+            $context->set(new Session($session));
+            $middleware = $scope->get(IdempotencyMiddleware::class);
+            assert($middleware instanceof IdempotencyMiddleware);
+
+            return $middleware->process(
+                (new ServerRequest('POST', '/orders/7/pay', [IdempotencyMiddleware::HEADER => 'order-1042'], '{"amount":25}'))->withAttribute('_handler', [PayController::class, 'pay']),
+                new Handler($controller, 'pay'),
+            );
+        };
+
+        $pay($app->container()->createScope(), str_repeat('a', 64));
+        $this->assertSame('true', $pay($app->container()->createScope(), str_repeat('a', 64))->getHeaderLine(IdempotencyMiddleware::REPLAYED));
+        $this->assertSame('', $pay($app->container()->createScope(), str_repeat('b', 64))->getHeaderLine(IdempotencyMiddleware::REPLAYED), 'another session');
+        $this->assertSame('', $pay($app->container()->createScope(), null)->getHeaderLine(IdempotencyMiddleware::REPLAYED), 'a new visitor, by address');
+        $this->assertSame(3, $controller->payments);
     }
 
     /**

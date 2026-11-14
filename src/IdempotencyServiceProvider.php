@@ -19,10 +19,12 @@ use Zana\Idempotency\Console\PruneCommand;
 use Zana\Idempotency\Inspection\IdempotencyCheck;
 use Zana\Idempotency\Inspection\IdempotencySection;
 use Zana\Security\SecurityContext;
+use Zana\Session\SessionContext;
 
 /**
  * Registers the store, IdempotencyMiddleware (scoped, as it reads the
- * signed-in user from SecurityContext when security is installed), the
+ * signed-in user from SecurityContext when security is installed, and an
+ * anonymous visitor's session from SessionContext when sessions are), the
  * idempotency: commands, and the check and inspect contributions. Needs
  * DatabaseServiceProvider and HttpServiceProvider. Reads idempotency.ttl
  * (86,400 seconds) and idempotency.lock_seconds (60).
@@ -47,6 +49,10 @@ final class IdempotencyServiceProvider extends ServiceProvider
                 $user = $security instanceof SecurityContext
                     ? static fn (): ?string => $security->user()?->identifier()
                     : static fn (): ?string => null;
+                $sessions = class_exists(SessionContext::class) && $r->has(SessionContext::class) ? $r->get(SessionContext::class) : null;
+                $session = $sessions instanceof SessionContext
+                    ? static fn (): ?string => $sessions->has() ? $sessions->session()->id() : null
+                    : null;
 
                 return new IdempotencyMiddleware(
                     self::store($r),
@@ -55,8 +61,9 @@ final class IdempotencyServiceProvider extends ServiceProvider
                     $user,
                     $config->int('idempotency.ttl', 86_400),
                     $config->int('idempotency.lock_seconds', 60),
+                    $session,
                 );
-            })->uses(IdempotencyStore::class, ConfigurationInterface::class, ResponseFactoryInterface::class, StreamFactoryInterface::class, SecurityContext::class)
+            })->uses(IdempotencyStore::class, ConfigurationInterface::class, ResponseFactoryInterface::class, StreamFactoryInterface::class, SecurityContext::class, SessionContext::class)
             // The store is resolved lazily: resolving the tagged checks and sections must not need the database.
             ->singleton(IdempotencyCheck::class, static fn (ServiceResolverInterface $r): IdempotencyCheck => new IdempotencyCheck(static fn (): IdempotencyStore => self::store($r)))
             ->uses(IdempotencyStore::class)
